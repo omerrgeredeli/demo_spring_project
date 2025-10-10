@@ -1,13 +1,13 @@
-package com.example.demo;
+package com.example.asyncnotemanagerapi;
 
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
 
 @SpringBootApplication
-public class SimpleNoteApplication {
+public class AsyncNoteManagerApplication {
 
 	public static void main(String[] args) {
-		SpringApplication.run(SimpleNoteApplication.class, args);
+		SpringApplication.run(AsyncNoteManagerApplication.class, args);
 	}
 
 }
