@@ -1,10 +1,10 @@
 package com.example.asyncnotemanagerapi.model.backup;
 
 public enum BackupStatus {
-    NOT_STARTED("Not Started"),
+    IDLE("Idle"),
     IN_PROGRESS("In Progress"),
     SUCCESS("Success"),
-    FAILED("Failed");
+    FAILURE("Failure");  // NoteServiceImpl’deki "lastBackupStatus = BackupStatus.FAILURE" için
 
     private final String value;
 
@@ -16,7 +16,7 @@ public enum BackupStatus {
         return value;
     }
 
-    // Opsiyonel: String’den enum bulmak için
+    // String’den enum bulmak için opsiyonel
     public static BackupStatus fromValue(String value) {
         for (BackupStatus status : values()) {
             if (status.getValue().equalsIgnoreCase(value)) {

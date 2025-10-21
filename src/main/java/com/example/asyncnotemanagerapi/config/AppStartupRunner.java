@@ -24,6 +24,6 @@ public class AppStartupRunner implements CommandLineRunner {
                 LocalDateTime.now()
         );
 
-        System.out.println("Sample Note Initialized: " + sampleNote.title());
+        System.out.println("Sample Note Initialized: " + sampleNote.getTitle());
     }
 }

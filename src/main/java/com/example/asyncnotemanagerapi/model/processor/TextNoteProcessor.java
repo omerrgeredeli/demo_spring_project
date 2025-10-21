@@ -8,15 +8,15 @@ import java.util.stream.Collectors;
 public class TextNoteProcessor extends NoteProcessor{
     @Override
     public Note process(Note note) {
-        if ("TEXT".equalsIgnoreCase(note.category())) {
+        if ("TEXT".equalsIgnoreCase(note.getCategory())) {
             // İçeriği temizle
-            String content = note.content();
+            String content = note.getContent();
             if (content != null) {
                 content = content.trim().replaceAll("\\s+", " ").toLowerCase();
             }
 
             // Tag listesi normalize et
-            List<String> tags = note.tags();
+            List<String> tags = note.getTags();
             if (tags != null) {
                 tags = tags.stream()
                         .filter(tag -> tag != null)
@@ -25,20 +25,20 @@ public class TextNoteProcessor extends NoteProcessor{
                         .collect(Collectors.toList());
             }
 
-            System.out.println("Text note processed: " + note.title());
+            System.out.println("Text note processed: " + note.getTitle());
 
             // Yeni Note record döndür
             return new Note(
-                    note.id(),
-                    note.title(),
+                    note.getId(),
+                    note.getTitle(),
                     content,
-                    note.category(),
+                    note.getCategory(),
                     tags,
-                    note.createdAt(),
-                    note.updatedAt()
+                    note.getCreatedAt(),
+                    note.getUpdatedAt()
             );
         } else {
-            System.out.println("Skipping non-text note: " + note.title());
+            System.out.println("Skipping non-text note: " + note.getTitle());
             return note; // değişiklik yok
         }
     }

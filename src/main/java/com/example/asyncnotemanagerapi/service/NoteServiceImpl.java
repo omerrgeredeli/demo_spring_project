@@ -2,128 +2,129 @@ package com.example.asyncnotemanagerapi.service;
 
 import com.example.asyncnotemanagerapi.dto.NoteRequestDTO;
 import com.example.asyncnotemanagerapi.dto.NoteResponseDTO;
-import com.example.asyncnotemanagerapi.exception.InvalidNoteException;
 import com.example.asyncnotemanagerapi.exception.NoteNotFoundException;
 import com.example.asyncnotemanagerapi.model.Note;
 import com.example.asyncnotemanagerapi.model.backup.BackupStatus;
-import com.example.asyncnotemanagerapi.util.NoteMapper;
+import com.example.asyncnotemanagerapi.repository.NoteRepository;
 import org.springframework.stereotype.Service;
 
+import java.time.LocalDateTime;
+import java.util.Comparator;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
-import java.util.concurrent.atomic.AtomicInteger;
 import java.util.stream.Collectors;
 
 @Service
-public class NoteServiceImpl implements NoteService{
-    private final ConcurrentHashMap<Integer, Note> notes = new ConcurrentHashMap<>();
-    private final AtomicInteger idCounter = new AtomicInteger(1);
-    private final FileService fileService;
-    private final ExecutorService executor = Executors.newFixedThreadPool(3);
-    private volatile BackupStatus lastBackupStatus = BackupStatus.NOT_STARTED;
+public class NoteServiceImpl implements NoteService {
 
-    public NoteServiceImpl(FileService fileService) {
+    private final NoteRepository noteRepository;
+    private final FileService fileService;
+    private volatile BackupStatus lastBackupStatus = BackupStatus.IDLE;
+
+    public NoteServiceImpl(NoteRepository noteRepository, FileService fileService) {
+        this.noteRepository = noteRepository;
         this.fileService = fileService;
     }
 
-    // Yeni not oluştur
     @Override
     public NoteResponseDTO createNote(NoteRequestDTO request) {
-        if (request.title() == null || request.title().isBlank()) {
-            throw new InvalidNoteException("Note title cannot be empty");
-        }
-
-        int id = idCounter.getAndIncrement();
-        Note note = NoteMapper.toEntity(request, id);
-        notes.put(id, note);
-
-        return NoteMapper.toResponseDTO(note);
+        Note note = new Note(
+                0,
+                request.title(),
+                request.content(),
+                request.category(),
+                request.tags(),
+                LocalDateTime.now(),
+                LocalDateTime.now()
+        );
+        Note saved = noteRepository.save(note);
+        return toDTO(saved);
     }
 
-    // Tüm notları getir
     @Override
     public List<NoteResponseDTO> getAllNotes() {
-        return notes.values()
-                .stream()
-                .map(NoteMapper::toResponseDTO)
+        return noteRepository.findAll().stream()
+                .map(this::toDTO)
                 .collect(Collectors.toList());
     }
 
-    // ID'ye göre not getir
     @Override
     public NoteResponseDTO getNoteById(int id) {
-        Note note = notes.get(id);
-        if (note == null) {
-            throw new NoteNotFoundException("Note with ID " + id + " not found");
-        }
-        return NoteMapper.toResponseDTO(note);
+        Note note = noteRepository.findById(id)
+                .orElseThrow(() -> new NoteNotFoundException("Note with ID " + id + " not found."));
+        return toDTO(note);
     }
 
-    // Not güncelle
     @Override
     public NoteResponseDTO updateNote(int id, NoteRequestDTO request) {
-        Note existing = notes.get(id);
-        if (existing == null) {
-            throw new NoteNotFoundException("Cannot update. Note with ID " + id + " not found");
-        }
-
-        Note updated = existing.updateFrom(request);
-        notes.put(id, updated);
-
-        return NoteMapper.toResponseDTO(updated);
+        Note note = noteRepository.findById(id)
+                .orElseThrow(() -> new NoteNotFoundException("Note with ID " + id + " not found."));
+        Note updated = note.updateFrom(request);
+        return toDTO(noteRepository.save(updated));
     }
 
-    // Not sil
     @Override
     public void deleteNote(int id) {
-        if (notes.remove(id) == null) {
-            throw new NoteNotFoundException("Cannot delete. Note with ID " + id + " not found");
+        if (!noteRepository.existsById(id)) {
+            throw new NoteNotFoundException("Note with ID " + id + " not found.");
         }
+        noteRepository.deleteById(id);
     }
 
-    // Kategoriye göre filtrele (Stream API)
     @Override
     public List<NoteResponseDTO> filterByCategory(String category) {
-        return notes.values().stream()
-                .filter(note -> note.category() != null && note.category().equalsIgnoreCase(category))
-                .map(NoteMapper::toResponseDTO)
+        return noteRepository.findByCategory(category).stream()
+                .map(this::toDTO)
                 .collect(Collectors.toList());
     }
 
-    // Sıralama kriterine göre sıralama
     @Override
     public List<NoteResponseDTO> sortNotes(String criteria) {
-        return notes.values().stream()
-                .sorted((n1, n2) -> switch (criteria.toLowerCase()) {
-                    case "title" -> n1.title().compareToIgnoreCase(n2.title());
-                    case "created" -> n1.createdAt().compareTo(n2.createdAt());
-                    default -> n1.id() - n2.id();
-                })
-                .map(NoteMapper::toResponseDTO)
+        Comparator<Note> comparator;
+        if ("title".equalsIgnoreCase(criteria)) {
+            comparator = Comparator.comparing(Note::getTitle, String.CASE_INSENSITIVE_ORDER);
+        } else if ("createdAt".equalsIgnoreCase(criteria)) {
+            comparator = Comparator.comparing(Note::getCreatedAt);
+        } else {
+            comparator = Comparator.comparing(Note::getId); // default
+        }
+        return noteRepository.findAll().stream()
+                .sorted(comparator)
+                .map(this::toDTO)
                 .collect(Collectors.toList());
     }
 
-    // Asenkron yedekleme işlemi
     @Override
     public CompletableFuture<Void> backupNotesAsync() {
-        lastBackupStatus = BackupStatus.IN_PROGRESS;
-
+        lastBackupStatus = BackupStatus.IN_PROGRESS; // Başladı
         return CompletableFuture.runAsync(() -> {
             try {
-                fileService.saveNotesToFile(notes.values());
-                lastBackupStatus = BackupStatus.SUCCESS;
+                fileService.saveNotesToFile(noteRepository.findAll());
+                lastBackupStatus = BackupStatus.SUCCESS; // Başarılı
             } catch (Exception e) {
-                lastBackupStatus = BackupStatus.FAILED;
-                throw new RuntimeException("Backup failed", e);
+                lastBackupStatus = BackupStatus.FAILURE; // Hata
+                System.err.println("Backup failed: " + e.getMessage());
+                e.printStackTrace();
             }
-        }, executor);
+        });
     }
+
 
     @Override
     public BackupStatus getBackupStatus() {
         return lastBackupStatus;
     }
+
+    private NoteResponseDTO toDTO(Note note) {
+        return new NoteResponseDTO(
+                note.getId(),
+                note.getTitle(),
+                note.getContent(),
+                note.getCategory(),
+                note.getTags(),
+                note.getCreatedAt(),
+                note.getUpdatedAt()
+        );
+    }
+
 }

@@ -18,13 +18,13 @@ public class FileService {
             StringBuilder sb = new StringBuilder();
 
             for (Note note : notes) {
-                sb.append("ID: ").append(note.id()).append("\n")
-                        .append("Title: ").append(note.title()).append("\n")
-                        .append("Category: ").append(note.category()).append("\n")
-                        .append("CreatedAt: ").append(note.createdAt()).append("\n")
-                        .append("UpdatedAt: ").append(note.updatedAt()).append("\n")
-                        .append("Content: ").append(note.content()).append("\n")
-                        .append("Tags: ").append(note.tags()).append("\n")
+                sb.append("ID: ").append(note.getId()).append("\n")
+                        .append("Title: ").append(note.getTitle()).append("\n")
+                        .append("Category: ").append(note.getCategory()).append("\n")
+                        .append("CreatedAt: ").append(note.getCreatedAt()).append("\n")
+                        .append("UpdatedAt: ").append(note.getUpdatedAt()).append("\n")
+                        .append("Content: ").append(note.getContent()).append("\n")
+                        .append("Tags: ").append(note.getTags()).append("\n")
                         .append("------------\n");
             }
 

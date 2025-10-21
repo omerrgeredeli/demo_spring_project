@@ -21,14 +21,17 @@ public class NoteMapper {
     }
 
     // Entity -> Response DTO
+    // Entity -> Response DTO
     public static NoteResponseDTO toResponseDTO(Note note) {
         return new NoteResponseDTO(
-                note.id(),
-                note.title(),
-                note.content(),
-                note.category(),
-                note.createdAt(),
-                note.updatedAt()
+                note.getId(),
+                note.getTitle(),
+                note.getContent(),
+                note.getCategory(),
+                note.getTags(),       // 👈 eksik olan buydu
+                note.getCreatedAt(),
+                note.getUpdatedAt()
         );
     }
+
 }
