@@ -6,20 +6,26 @@ import com.example.asyncnotemanagerapi.exception.NoteNotFoundException;
 import com.example.asyncnotemanagerapi.model.Note;
 import com.example.asyncnotemanagerapi.model.backup.BackupStatus;
 import com.example.asyncnotemanagerapi.repository.NoteRepository;
+import com.example.asyncnotemanagerapi.util.NoteMapper;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
 
-import java.time.LocalDateTime;
 import java.util.Comparator;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.atomic.AtomicReference;
 import java.util.stream.Collectors;
 
 @Service
 public class NoteServiceImpl implements NoteService {
 
+    private static final Logger logger = LoggerFactory.getLogger(NoteServiceImpl.class);
+
     private final NoteRepository noteRepository;
     private final FileService fileService;
-    private volatile BackupStatus lastBackupStatus = BackupStatus.IDLE;
+    private final AtomicReference<BackupStatus> lastBackupStatus = new AtomicReference<>(BackupStatus.IDLE);
 
     public NoteServiceImpl(NoteRepository noteRepository, FileService fileService) {
         this.noteRepository = noteRepository;
@@ -28,43 +34,36 @@ public class NoteServiceImpl implements NoteService {
 
     @Override
     public NoteResponseDTO createNote(NoteRequestDTO request) {
-        Note note = new Note(
-                0,
-                request.title(),
-                request.content(),
-                request.category(),
-                request.tags(),
-                LocalDateTime.now(),
-                LocalDateTime.now()
-        );
-        Note saved = noteRepository.save(note);
-        return toDTO(saved);
+        Note toSave = NoteMapper.toEntity(request);
+        Note saved = noteRepository.save(toSave);
+        return NoteMapper.toResponseDTO(saved);
     }
 
     @Override
     public List<NoteResponseDTO> getAllNotes() {
         return noteRepository.findAll().stream()
-                .map(this::toDTO)
+                .map(NoteMapper::toResponseDTO)
                 .collect(Collectors.toList());
     }
 
     @Override
-    public NoteResponseDTO getNoteById(int id) {
+    public NoteResponseDTO getNoteById(Long id) {
         Note note = noteRepository.findById(id)
                 .orElseThrow(() -> new NoteNotFoundException("Note with ID " + id + " not found."));
-        return toDTO(note);
+        return NoteMapper.toResponseDTO(note);
     }
 
     @Override
-    public NoteResponseDTO updateNote(int id, NoteRequestDTO request) {
-        Note note = noteRepository.findById(id)
+    public NoteResponseDTO updateNote(Long id, NoteRequestDTO request) {
+        Note existing = noteRepository.findById(id)
                 .orElseThrow(() -> new NoteNotFoundException("Note with ID " + id + " not found."));
-        Note updated = note.updateFrom(request);
-        return toDTO(noteRepository.save(updated));
+        Note updated = NoteMapper.applyUpdates(existing, request);
+        updated = noteRepository.save(updated);
+        return NoteMapper.toResponseDTO(updated);
     }
 
     @Override
-    public void deleteNote(int id) {
+    public void deleteNote(Long id) {
         if (!noteRepository.existsById(id)) {
             throw new NoteNotFoundException("Note with ID " + id + " not found.");
         }
@@ -74,7 +73,7 @@ public class NoteServiceImpl implements NoteService {
     @Override
     public List<NoteResponseDTO> filterByCategory(String category) {
         return noteRepository.findByCategory(category).stream()
-                .map(this::toDTO)
+                .map(NoteMapper::toResponseDTO)
                 .collect(Collectors.toList());
     }
 
@@ -86,45 +85,32 @@ public class NoteServiceImpl implements NoteService {
         } else if ("createdAt".equalsIgnoreCase(criteria)) {
             comparator = Comparator.comparing(Note::getCreatedAt);
         } else {
-            comparator = Comparator.comparing(Note::getId); // default
+            comparator = Comparator.comparing(Note::getId);
         }
         return noteRepository.findAll().stream()
                 .sorted(comparator)
-                .map(this::toDTO)
+                .map(NoteMapper::toResponseDTO)
                 .collect(Collectors.toList());
     }
 
     @Override
+    @Async("noteExecutor")
     public CompletableFuture<Void> backupNotesAsync() {
-        lastBackupStatus = BackupStatus.IN_PROGRESS; // Başladı
+        lastBackupStatus.set(BackupStatus.IN_PROGRESS);
         return CompletableFuture.runAsync(() -> {
             try {
                 fileService.saveNotesToFile(noteRepository.findAll());
-                lastBackupStatus = BackupStatus.SUCCESS; // Başarılı
+                lastBackupStatus.set(BackupStatus.SUCCESS);
+                logger.info("Backup completed successfully");
             } catch (Exception e) {
-                lastBackupStatus = BackupStatus.FAILURE; // Hata
-                System.err.println("Backup failed: " + e.getMessage());
-                e.printStackTrace();
+                lastBackupStatus.set(BackupStatus.FAILURE);
+                logger.error("Backup failed", e);
             }
         });
     }
 
-
     @Override
     public BackupStatus getBackupStatus() {
-        return lastBackupStatus;
+        return lastBackupStatus.get();
     }
-
-    private NoteResponseDTO toDTO(Note note) {
-        return new NoteResponseDTO(
-                note.getId(),
-                note.getTitle(),
-                note.getContent(),
-                note.getCategory(),
-                note.getTags(),
-                note.getCreatedAt(),
-                note.getUpdatedAt()
-        );
-    }
-
 }

@@ -1,3 +1,4 @@
+// File: src/main/java/com/example/asyncnotemanagerapi/util/FileUtils.java
 package com.example.asyncnotemanagerapi.util;
 
 import com.example.asyncnotemanagerapi.exception.FileStorageException;
@@ -8,7 +9,7 @@ import java.nio.file.Path;
 import java.nio.file.StandardOpenOption;
 
 public class FileUtils {
-    // Create directory if not exists
+
     public static void createDirectory(String path) {
         try {
             Path dirPath = Path.of(path);
@@ -20,17 +21,24 @@ public class FileUtils {
         }
     }
 
-    // Write content to a file
-    public static void writeToFile(String filename, String content) {
+    /**
+     * @param filename destination file path
+     * @param content content to write
+     * @param append if true, appends to file; otherwise truncates/overwrites
+     */
+    public static void writeToFile(String filename, String content, boolean append) {
         try {
             Path filePath = Path.of(filename);
-            Files.writeString(filePath, content, StandardOpenOption.CREATE, StandardOpenOption.TRUNCATE_EXISTING);
+            if (append) {
+                Files.writeString(filePath, content, StandardOpenOption.CREATE, StandardOpenOption.APPEND);
+            } else {
+                Files.writeString(filePath, content, StandardOpenOption.CREATE, StandardOpenOption.TRUNCATE_EXISTING);
+            }
         } catch (IOException e) {
             throw new FileStorageException("Failed to write to file: " + filename, e);
         }
     }
 
-    // Read content from a file
     public static String readFromFile(String filename) {
         try {
             Path filePath = Path.of(filename);

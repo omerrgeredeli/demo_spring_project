@@ -4,7 +4,7 @@ import java.time.LocalDateTime;
 import java.util.List;
 
 public record NoteResponseDTO(
-        int id,
+        Long id,   // ✅ Long olmalı
         String title,
         String content,
         String category,

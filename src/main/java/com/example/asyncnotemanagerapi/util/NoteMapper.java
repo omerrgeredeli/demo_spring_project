@@ -5,33 +5,41 @@ import com.example.asyncnotemanagerapi.dto.NoteResponseDTO;
 import com.example.asyncnotemanagerapi.model.Note;
 
 import java.time.LocalDateTime;
+import java.util.List;
 
 public class NoteMapper {
-    // Request DTO -> Entity
-    public static Note toEntity(NoteRequestDTO dto, int generatedId) {
-        return new Note(
-                generatedId,
-                dto.title(),
-                dto.content(),
-                dto.category(),
-                dto.tags(),
-                LocalDateTime.now(),
-                LocalDateTime.now()
-        );
-    }
 
-    // Entity -> Response DTO
-    // Entity -> Response DTO
     public static NoteResponseDTO toResponseDTO(Note note) {
         return new NoteResponseDTO(
-                note.getId(),
+                note.getId(), // ✅ Long id (DTO’da da Long olmalı)
                 note.getTitle(),
                 note.getContent(),
                 note.getCategory(),
-                note.getTags(),       // 👈 eksik olan buydu
+                note.getTags(),
                 note.getCreatedAt(),
                 note.getUpdatedAt()
         );
     }
 
+    // ✅ DTO -> Entity dönüşümü
+    public static Note toEntity(NoteRequestDTO dto) {
+        return Note.builder()
+                .title(dto.title())
+                .content(dto.content())
+                .category(dto.category())
+                .tags(dto.tags())
+                .createdAt(LocalDateTime.now())
+                .updatedAt(LocalDateTime.now())
+                .build();
+    }
+
+    // ✅ Var olan notu DTO bilgileriyle güncelle
+    public static Note applyUpdates(Note existing, NoteRequestDTO dto) {
+        if (dto.title() != null) existing.setTitle(dto.title());
+        if (dto.content() != null) existing.setContent(dto.content());
+        if (dto.category() != null) existing.setCategory(dto.category());
+        if (dto.tags() != null) existing.setTags(dto.tags());
+        existing.setUpdatedAt(LocalDateTime.now());
+        return existing;
+    }
 }

@@ -1,8 +1,12 @@
+// File: src/main/java/com/example/asyncnotemanagerapi/service/FileService.java
 package com.example.asyncnotemanagerapi.service;
 
 import com.example.asyncnotemanagerapi.exception.FileStorageException;
 import com.example.asyncnotemanagerapi.model.Note;
 import com.example.asyncnotemanagerapi.util.FileUtils;
+import com.example.asyncnotemanagerapi.util.AppConstants;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 
 import java.nio.file.Path;
@@ -10,7 +14,8 @@ import java.util.Collection;
 
 @Service
 public class FileService {
-    private final Path filePath = Path.of("backups/notes_backup.txt");
+    private static final Logger logger = LoggerFactory.getLogger(FileService.class);
+    private final Path filePath = Path.of(AppConstants.DEFAULT_BACKUP_FILE);
 
     public void saveNotesToFile(Collection<Note> notes) {
         try {
@@ -28,13 +33,15 @@ public class FileService {
                         .append("------------\n");
             }
 
-            FileUtils.writeToFile(filePath.toString(), sb.toString());
+            FileUtils.writeToFile(filePath.toString(), sb.toString(), false);
+            logger.info("Saved {} notes to {}", notes.size(), filePath);
         } catch (Exception e) {
+            logger.error("Failed to save notes to file", e);
             throw new FileStorageException("Failed to save notes to file", e);
         }
     }
 
-    public void createBackupDirectoryIfNeeded() {
+    private void createBackupDirectoryIfNeeded() {
         FileUtils.createDirectory(filePath.getParent().toString());
     }
 }

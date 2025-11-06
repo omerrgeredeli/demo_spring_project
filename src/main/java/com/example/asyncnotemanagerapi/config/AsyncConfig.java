@@ -1,3 +1,4 @@
+// File: src/main/java/com/example/asyncnotemanagerapi/config/AsyncConfig.java
 package com.example.asyncnotemanagerapi.config;
 
 import org.springframework.context.annotation.Bean;
@@ -15,9 +16,9 @@ public class AsyncConfig {
     public Executor noteExecutor(){
         ThreadPoolTaskExecutor executor = new ThreadPoolTaskExecutor();
         executor.setCorePoolSize(3);
-        executor.setMaxPoolSize(6);           // Maksimum thread sayısı
-        executor.setQueueCapacity(20);        // Bekleyen görev kapasitesi
-        executor.setThreadNamePrefix("NoteAsync-"); // Thread isim prefix
+        executor.setMaxPoolSize(6);
+        executor.setQueueCapacity(50);
+        executor.setThreadNamePrefix("NoteAsync-");
         executor.initialize();
         return executor;
     }
